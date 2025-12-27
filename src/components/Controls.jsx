@@ -1,7 +1,7 @@
 import { socket } from "../services/socket";
 import { useState } from "react";
 
-export default function Controls({ localStream, roomId }) {
+export default function Controls({ localStream, roomId, startRecording, stopRecording}) {
   if (!localStream) return null;
 
   // UI STATES
@@ -13,10 +13,6 @@ export default function Controls({ localStream, roomId }) {
     audioTrack.enabled = !audioTrack.enabled;
     setIsMuted(!audioTrack.enabled);
   };
-  // const track = localStreamRef.current?.getAudioTracks()[0];
-  //   if (!track) return;
-  //   track.enabled = !track.enabled;
-  //   setIsMuted(!track.enabled);
 
   const toggleCamera = () => {
     const videoTrack = localStream.getVideoTracks()[0];
@@ -41,6 +37,10 @@ export default function Controls({ localStream, roomId }) {
       </button>
 
       <button onClick={leaveCall}>Leave</button>
+
+      {/* <button onClick={startRecording}>Start Recording</button>
+
+      <button onClick={stopRecording}>Stop Recording</button> */}
     </div>
   );
 }

@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { socket } from "../services/socket";
 
-const ROOM_ID = "demo-room";
+// const ROOM_ID = "demo-room";
 
 function Chat() {
-  const [user] = useState("Prince");
+  const [user,setUser] = useState("");
+  const [ROOM_ID,setRoom]=useState("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
+    const userName = localStorage.getItem("userName") || "Guest";
+    const roomName = localStorage.getItem("roomName") || "Demo";
+    setUser(userName);
+    setRoom(roomName);
+
     socket.emit("join-room", { roomId: ROOM_ID, user });
 
     socket.on("receive-message", (data) => {

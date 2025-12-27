@@ -17,6 +17,8 @@ export default function Room() {
 
   const videoRefs = useRef({});
   const [page, setPage] = useState(0);
+  const [showChatMobile, setShowChatMobile] = useState(false);
+
 
   // Attach streams to video elements
   useEffect(() => {
@@ -76,8 +78,16 @@ export default function Room() {
               <Controls
                 localStream={localStream}
                 roomId="demo-video"
+              // startRecording={startRecording}
+              // stopRecording={stopRecording}
               />
             </div>
+            <button
+              className="mobile-chat-btn"
+              onClick={() => setShowChatMobile(true)}
+            >
+              Chat
+            </button>
           </div>
 
           {/* SMALL VIDEOS */}
@@ -124,6 +134,15 @@ export default function Room() {
         <div className="chat-area">
           <Chat />
         </div>
+        {/* <div className={`chat-area ${showChatMobile ? "show-chat" : ""}`}>
+          <button
+            className="close-chat-btn"
+            onClick={() => setShowChatMobile(false)}
+          >
+            ✕
+          </button>
+          <Chat />
+        </div> */}
       </div>
     </>
   );

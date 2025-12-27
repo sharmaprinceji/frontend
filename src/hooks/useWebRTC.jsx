@@ -11,6 +11,9 @@ export function useWebRTC(roomId) {
     const [localStream, setLocalStream] = useState(null);
     const [streams, setStreams] = useState([]);
     const [activeId, setActiveId] = useState(null);
+    const recorderRef = useRef(null);
+    const recordedChunksRef = useRef([]);
+
 
     useEffect(() => {
         let mounted = true;
@@ -70,7 +73,7 @@ export function useWebRTC(roomId) {
             // });
 
             socket.on("user-left", (id) => {
-                console.log('73======>',id);
+                console.log('73======>', id);
                 if (peers.current[id]) {
                     peers.current[id].close();
                     delete peers.current[id];
@@ -146,11 +149,80 @@ export function useWebRTC(roomId) {
         return pc;
     }
 
+    const getRecordingStream = () => {
+        const combinedStream = new MediaStream();
+
+        // local tracks
+        if (localStream) {
+            localStream.getTracks().forEach(track =>
+                combinedStream.addTrack(track)
+            );
+        }
+
+        // remote tracks
+        streams.forEach(({ id, stream }) => {
+            if (id !== "local") {
+                stream.getTracks().forEach(track =>
+                    combinedStream.addTrack(track)
+                );
+            }
+        });
+
+        return combinedStream;
+    };
+
+    const startRecording = () => {
+        recordedChunksRef.current = [];
+
+        const recordingStream = getRecordingStream();
+
+        const mediaRecorder = new MediaRecorder(recordingStream, {
+            mimeType: "video/webm;codecs=vp9,opus"
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunksRef.current.push(event.data);
+            }
+        };
+
+        mediaRecorder.start();
+        recorderRef.current = mediaRecorder;
+
+        console.log("Recording started");
+    };
+
+    const stopRecording = () => {
+        recorderRef.current.stop();
+
+        recorderRef.current.onstop = () => {
+            const blob = new Blob(recordedChunksRef.current, {
+                type: "video/webm"
+            });
+
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `meeting-${Date.now()}.webm`;
+            document.body.appendChild(a);
+            a.click();
+
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            console.log("Recording downloaded");
+        };
+    };
+
+
     return {
         localVideoRef,
         localStream,
         streams,
         activeId,
-        setActiveId
+        setActiveId,
+        startRecording,
+        stopRecording
     };
 }
