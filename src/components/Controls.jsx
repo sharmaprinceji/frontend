@@ -13,6 +13,10 @@ export default function Controls({ localStream, roomId }) {
     audioTrack.enabled = !audioTrack.enabled;
     setIsMuted(!audioTrack.enabled);
   };
+  // const track = localStreamRef.current?.getAudioTracks()[0];
+  //   if (!track) return;
+  //   track.enabled = !track.enabled;
+  //   setIsMuted(!track.enabled);
 
   const toggleCamera = () => {
     const videoTrack = localStream.getVideoTracks()[0];
