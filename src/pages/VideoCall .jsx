@@ -8,67 +8,66 @@ const ROOM_ID = "demo-video";
 const VideoCall = () => {
   const navigate = useNavigate();
 
-  const localVideoRef = useRef(null);
   const bigVideoRef = useRef(null);
-  const peerConnection = useRef(null);
-  const localStream = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const hasCreatedOfferRef = useRef(false);
+  const pendingIceCandidatesRef = useRef([]);
+
+
 
   const [remoteStreams, setRemoteStreams] = useState([]);
   const [activeStream, setActiveStream] = useState(null);
+  const [remoteCameraState, setRemoteCameraState] = useState({});
+
 
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
+  // ---------------- INIT ----------------
   useEffect(() => {
     const init = async () => {
-      // 🎥 Local media
-      localStream.current = await navigator.mediaDevices.getUserMedia({
+      // 🎥 Local stream
+      const localStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
 
-      // Default BIG = local video
-      setActiveStream(localStream.current);
+      localStreamRef.current = localStream;
+      setActiveStream(localStream); // BIG = local by default
 
-      localVideoRef.current.srcObject = localStream.current;
-
-      peerConnection.current = new RTCPeerConnection({
+      const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
+      peerConnectionRef.current = pc;
 
-      localStream.current.getTracks().forEach(track =>
-        peerConnection.current.addTrack(track, localStream.current)
-      );
-      
+      // Add local tracks
+      localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
+      });
 
-      // peerConnection.current.ontrack = (e) => {
-      //   const stream = e.streams[0];
+      // Handle remote tracks (IMPORTANT FIX)
+      pc.ontrack = (e) => {
+        const incomingStream = e.streams[0];
+        const incomingTrack = e.track;
 
-      //   setRemoteStreams(prev => {
-      //     if (prev.find(s => s.id === stream.id)) return prev;
-      //     return [...prev, stream];
-      //   });
+        const isLocalTrack = localStreamRef.current
+          .getTracks()
+          .some((t) => t.id === incomingTrack.id);
 
-      //   // 👇 Remote join → make BIG
-      //   setActiveStream(stream);
-      // };
+        if (isLocalTrack) return;
 
-      peerConnection.current.ontrack = (e) => {
-  const incomingStream = e.streams[0];
+        // 🔥 socketId ko transceiver se attach karo (simple hack)
+        const socketId = e.transceiver?.mid || "remote";
 
-  // ❗ IMPORTANT: ignore local stream echoed back
-  if (incomingStream.id === localStream.current.id) {
-    return;
-  }
-
-  setRemoteStreams(prev => {
-    if (prev.find(s => s.id === incomingStream.id)) return prev;
-    return [...prev, incomingStream];
-  });
-};
+        setRemoteStreams((prev) => {
+          if (prev.find((s) => s.stream.id === incomingStream.id)) return prev;
+          return [...prev, { stream: incomingStream, socketId }];
+        });
+      };
 
 
-      peerConnection.current.onicecandidate = (e) => {
+      pc.onicecandidate = (e) => {
         if (e.candidate) {
           socket.emit("ice-candidate", {
             roomId: ROOM_ID,
@@ -79,173 +78,271 @@ const VideoCall = () => {
 
       socket.emit("join-video-room", { roomId: ROOM_ID });
 
+      // 1️⃣ listeners FIRST
       socket.on("user-joined-video", async () => {
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
-        socket.emit("offer", { roomId: ROOM_ID, offer });
+        if (hasCreatedOfferRef.current) return;
+
+        hasCreatedOfferRef.current = true;
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit("offer", {
+          roomId: ROOM_ID,
+          offer,
+        });
       });
 
-      socket.on("offer", async (offer) => {
-        await peerConnection.current.setRemoteDescription(offer);
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket.emit("answer", { roomId: ROOM_ID, answer });
+      socket.on("offer", async ({ offer }) => {
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(offer)
+        );
+
+        for (const c of pendingIceCandidatesRef.current) {
+          await pc.addIceCandidate(c);
+        }
+        pendingIceCandidatesRef.current = [];
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit("answer", {
+          roomId: ROOM_ID,
+          answer,
+        });
       });
 
-      socket.on("answer", async (answer) => {
-        await peerConnection.current.setRemoteDescription(answer);
+
+      socket.on("answer", async ({ answer }) => {
+        if (pc.signalingState !== "have-local-offer") return;
+
+        await pc.setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+
+        // 🔥 Flush queued ICE
+        for (const c of pendingIceCandidatesRef.current) {
+          await pc.addIceCandidate(c);
+        }
+        pendingIceCandidatesRef.current = [];
       });
 
-      socket.on("ice-candidate", async (candidate) => {
-        await peerConnection.current.addIceCandidate(candidate);
+
+
+      socket.on("ice-candidate", async ({ candidate }) => {
+        if (!pc.remoteDescription) {
+          pendingIceCandidatesRef.current.push(candidate);
+          return;
+        }
+
+        await pc.addIceCandidate(candidate);
       });
-      console.log('remote stram id ====>87',remoteStreams.map(s => s.id))
-      console.log("loacl stream id===>",localStream.current);
+
+      socket.on("camera-state", ({ socketId, cameraOff }) => {
+        console.log("Remote camera changed:", socketId, cameraOff);
+
+        setIsCameraOff(cameraOff);
+        setRemoteCameraState((prev) => ({
+          ...prev,
+          [socketId]: cameraOff,
+        }));
+
+      });
+
     };
 
     init();
 
     return () => {
       socket.off();
-      peerConnection.current?.close();
-      localStream.current?.getTracks().forEach(t => t.stop());
+      peerConnectionRef.current?.close();
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  // 🎯 BIG SCREEN stream assign
+  // ---------------- BIG VIDEO ----------------
   useEffect(() => {
     if (bigVideoRef.current && activeStream) {
       bigVideoRef.current.srcObject = activeStream;
     }
   }, [activeStream]);
 
+  // ---------------- CONTROLS ----------------
   const toggleMute = () => {
-    const track = localStream.current.getAudioTracks()[0];
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (!track) return;
     track.enabled = !track.enabled;
     setIsMuted(!track.enabled);
   };
 
-  // const toggleCamera = () => {
-  //   const track = localStream.current.getVideoTracks()[0];
-  //   track.enabled = !track.enabled;
-  //   setIsCameraOff(!track.enabled);
-  // };
- const toggleCamera = () => {
-  const track = localStream.current.getVideoTracks()[0];
-  const cameraNowOff = track.enabled; // before toggle
+  const toggleCamera = () => {
+    const track = localStreamRef.current.getVideoTracks()[0];
+    track.enabled = !track.enabled;
 
-  track.enabled = !track.enabled;
-  setIsCameraOff(cameraNowOff);
+    setIsCameraOff(!track.enabled);
 
-  // 🔥 FORCE BIG SCREEN UPDATE
-  if (cameraNowOff) {
-    // camera turned OFF
-    if (remoteStreams.length > 0) {
-      setActiveStream(remoteStreams[0]); // show remote BIG
-    }
-  } else {
-    // camera turned ON
-    setActiveStream(localStream.current); // show self BIG again
-  }
-};
-
+    // 🔥 notify others
+    socket.emit("camera-state", {
+      roomId: ROOM_ID,
+      cameraOff: !track.enabled,
+    });
+  };
 
 
   const leaveCall = () => {
-    socket.disconnect();
+    hasCreatedOfferRef.current = false;
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
     navigate("/");
   };
 
+  const smallStreams = [];
+
+  // ✅ local small tabhi jab BIG nahi hai
+  if (
+    localStreamRef.current &&
+    activeStream !== localStreamRef.current
+  ) {
+    smallStreams.push(localStreamRef.current);
+  }
+
+  // ✅ remote small tabhi jab BIG nahi hai
+  remoteStreams.forEach((s) => {
+    if (s !== activeStream) {
+      smallStreams.push(s);
+    }
+  });
+
+  // const smallStreams = [];
+
+  // // ✅ local stream as object
+  // if (
+  //   localStreamRef.current &&
+  //   activeStream !== localStreamRef.current
+  // ) {
+  //   smallStreams.push({
+  //     stream: localStreamRef.current,
+  //     socketId: "local",
+  //   });
+  // }
+
+  // // ✅ remote streams (same shape)
+  // remoteStreams.forEach((obj) => {
+  //   if (obj.stream !== activeStream) {
+  //     smallStreams.push(obj);
+  //   }
+  // });
+
+
+  // console.log("smallStreams:====>", smallStreams, remoteStreams);
+
+
   return (
-    <div style={{ height: "100%", display: "flex" }}>
-      
+    <div style={{ height: "100vh", display: "flex" }}>
       {/* VIDEO AREA */}
-      <div style={{ width: "75%", background: "#000", position: "relative" }}>
-        
-        {/* BIG VIDEO (16:9) */}
-        <div style={{ width: "100%", height: "100%" }}>
-          <video
-            ref={bigVideoRef}
-            autoPlay
-            playsInline
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              background: "black",
-            }}
-          />
+      <div style={{ width: "70%", background: "#000", position: "relative" }}>
+        {/* BIG VIDEO */}
+        <video
+          ref={bigVideoRef}
+          autoPlay
+          playsInline
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            background: "black",
+          }}
+        />
+
+        {/* SMALL THUMBNAILS */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 20,
+            left: 20,
+            display: "flex",
+            gap: 10,
+          }}
+        >
+          {smallStreams.map(({ stream, socketId }) => {
+            return (
+              <div
+                key={stream.id}
+                style={{ position: "relative", width: 140, height: 100 }}
+              >
+                <video
+                  autoPlay
+                  playsInline
+                  ref={(el) => el && (el.srcObject = stream)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: isCameraOff ? "none" : "block",
+                  }}
+                />
+
+                {isCameraOff && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "black",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                    }}
+                  >
+                    Camera Off
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* {smallStreams.map(({ stream, socketId }) => {
+            const isCamOff =
+              socketId !== "local" && remoteCameraState[socketId];
+
+            return (
+              <div
+                key={stream.id + socketId}
+                style={{ position: "relative", width: 140, height: 100 }}
+              >
+                <video
+                  autoPlay
+                  playsInline
+                  muted={socketId === "local"}
+                  ref={(el) => el && (el.srcObject = stream)}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: isCamOff ? "none" : "block",
+                  }}
+                />
+
+                {isCamOff && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "black",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                    }}
+                  >
+                    Camera Off
+                  </div>
+                )}
+              </div>
+            );
+          })} */}
+
+
         </div>
-
-       {/* LOCAL SMALL VIDEO */}
-<video
-  ref={localVideoRef}
-  autoPlay
-  muted
-  playsInline
-  onClick={() => setActiveStream(localStream.current)}
-  style={{
-    width: 160,
-    height: 120,
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    cursor: "pointer",
-    border: "2px solid white",
-    borderRadius: 6,
-  }}
-/>
-
-
-       {/* SMALL THUMBNAILS */}
-<div
-  style={{
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    display: "flex",
-    gap: 10,
-  }}
->
-  {/* LOCAL thumbnail (only if NOT active) */}
-  {activeStream !== localStream.current && (
-    <video
-      autoPlay
-      muted
-      playsInline
-      onClick={() => setActiveStream(localStream.current)}
-      ref={(el) => el && (el.srcObject = localStream.current)}
-      style={{
-        width: 140,
-        height: 100,
-        cursor: "pointer",
-        border: "2px solid white",
-        borderRadius: 6,
-      }}
-    />
-  )}
-
-  {/* REMOTE thumbnails (except active) */}
-  {remoteStreams
-    .filter((stream) => stream !== activeStream)
-    .map((stream) => (
-      <video
-        key={stream.id}
-        autoPlay
-        playsInline
-        onClick={() => setActiveStream(stream)}
-        ref={(el) => el && (el.srcObject = stream)}
-        style={{
-          width: 140,
-          height: 100,
-          cursor: "pointer",
-          border: "2px solid white",
-          borderRadius: 6,
-        }}
-      />
-    ))}
-</div>
-
 
         {/* CONTROLS */}
         <div
@@ -256,18 +353,23 @@ const VideoCall = () => {
             transform: "translateX(-50%)",
           }}
         >
-          <button onClick={toggleMute}>{isMuted ? "Unmute" : "Mute"}</button>
+          <button onClick={toggleMute}>
+            {isMuted ? "Unmute" : "Mute"}
+          </button>
           <button onClick={toggleCamera} style={{ marginLeft: 10 }}>
             {isCameraOff ? "Camera On" : "Camera Off"}
           </button>
-          <button onClick={leaveCall} style={{ marginLeft: 10, color: "red" }}>
+          <button
+            onClick={leaveCall}
+            style={{ marginLeft: 10, color: "red" }}
+          >
             Leave
           </button>
         </div>
       </div>
 
-      {/* CHAT RIGHT SIDE */}
-      <div style={{ width: "35%", height:"100%", borderLeft: "1px solid #ddd" }}>
+      {/* CHAT */}
+      <div style={{ width: "30%", borderLeft: "1px solid #ddd" }}>
         <Chat />
       </div>
     </div>
