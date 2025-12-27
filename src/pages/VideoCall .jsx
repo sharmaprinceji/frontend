@@ -212,30 +212,6 @@ const VideoCall = () => {
     }
   });
 
-  // const smallStreams = [];
-
-  // // ✅ local stream as object
-  // if (
-  //   localStreamRef.current &&
-  //   activeStream !== localStreamRef.current
-  // ) {
-  //   smallStreams.push({
-  //     stream: localStreamRef.current,
-  //     socketId: "local",
-  //   });
-  // }
-
-  // // ✅ remote streams (same shape)
-  // remoteStreams.forEach((obj) => {
-  //   if (obj.stream !== activeStream) {
-  //     smallStreams.push(obj);
-  //   }
-  // });
-
-
-  // console.log("smallStreams:====>", smallStreams, remoteStreams);
-
-
   return (
     <div style={{ height: "100vh", display: "flex" }}>
       {/* VIDEO AREA */}
@@ -377,3 +353,5 @@ const VideoCall = () => {
 };
 
 export default VideoCall;
+
+

@@ -33,24 +33,60 @@ function Chat() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Chat Room</h2>
+    <div
+  style={{
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    padding: "12px"
+  }}
+>
+  <h2 style={{ margin: "0 0 5px 0" }}>Chat Room</h2>
 
-      <div style={{ border: "1px solid #ccc", padding: 10, height: 300, overflowY: "auto" }}>
-        {messages.map((m, i) => (
-          <div key={i}>
-            <b>{m.user}:</b> {m.message}
-          </div>
-        ))}
+  <div
+    style={{
+      flex: 1,
+      overflowY: "auto",
+      border: "1px solid #ddd",
+      padding: "8px",
+      marginBottom: "10px"
+    }}
+  >
+    {messages.map((m, i) => (
+      <div key={i} style={{ marginBottom: "6px" }}>
+        <b>{m.user}:</b> {m.message}
       </div>
+    ))}
+  </div>
 
-      <input
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type message"
-      />
-      <button onClick={sendMessage}>Send</button>
-    </div>
+  <div
+    style={{
+      display: "flex",
+      gap: "6px"
+    }}
+  >
+    <input
+      value={message}
+      onChange={(e) => setMessage(e.target.value)}
+      placeholder="Type message"
+      style={{
+        flex: 1,
+        padding: "6px"
+      }}
+    />
+    <button
+      onClick={sendMessage}
+      style={{
+        padding: "6px 12px",
+        cursor: "pointer",
+        marginBottom:"10px",
+      }}
+    >
+      Send
+    </button>
+  </div>
+</div>
+
   );
 }
 

@@ -1,3 +1,4 @@
+import { socket } from "../services/socket";
 const Header = () => {
   return (
     <header

@@ -8,7 +8,7 @@ const Home = () => {
       <h2>Start a Video Meeting</h2>
 
       <button
-        onClick={() => navigate("/meet")}
+        onClick={() => navigate("/room")}
         style={{
           padding: "12px 25px",
           fontSize: "16px",

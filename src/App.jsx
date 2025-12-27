@@ -5,6 +5,7 @@ import VideoCall from './pages/VideoCall ';
 import Home from './pages/home';
 import Header from './components/Header';
 import {BrowserRouter, Routes, Route} from 'react-router-dom';
+import Room from './pages/Room';
 
 import './App.css'
 
@@ -32,6 +33,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/meet" element={<VideoCall />} />
+        <Route path="/room" element={<Room />}/>
       </Routes>
     </BrowserRouter>
   )

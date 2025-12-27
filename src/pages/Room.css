@@ -1,0 +1,101 @@
+/* MAIN GRID */
+.room-layout {
+  display: grid;
+  grid-template-columns: 75% 25%;
+  height: 80vh;
+  gap: 10px;
+}
+
+/* VIDEO AREA */
+.video-area {
+  display: flex;
+}
+
+/* BIG VIDEO */
+.big-video-container {
+  flex: 3;
+  position: relative;
+  background: black;
+}
+
+.big-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: black;
+}
+
+/* CONTROLS OVERLAY */
+.video-controls-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 8px 16px;
+  border-radius: 30px;
+  display: flex;
+  justify-content: space-between;
+
+  gap: 30px;
+}
+
+/* SHOW CONTROLS ON HOVER */
+.big-video-container:hover .video-controls-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* SMALL VIDEOS COLUMN */
+.small-video-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-left: 6px;
+}
+
+/* SMALL VIDEO LIST */
+.small-video-list {
+  padding-bottom: 60px;
+}
+
+.small-video {
+  width: 130px;
+  height: 90px;
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  background: black;
+  object-fit: cover;
+}
+
+/* PAGINATION FIXED BOTTOM */
+.thumbnail-pagination {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  background: #fff;
+  padding-top: 6px;
+}
+
+/* MORE COUNT */
+.more-count {
+  text-align: center;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* CHAT AREA */
+.chat-area {
+  height: 100%;
+  border-left: 1px solid #ddd;
+  overflow: hidden;
+}
