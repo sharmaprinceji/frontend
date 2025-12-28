@@ -1,149 +1,191 @@
 import { useEffect, useRef, useState } from "react";
-import { useWebRTC } from "../hooks/useWebRTC";
+import { useSFU } from "../hooks/useSFU";
 import Controls from "../components/Controls";
 import Chat from "./Chat";
-import "./room.css";   // 🔥 external CSS
+import "./room.css";
 
 const PAGE_SIZE = 3;
 
 export default function Room() {
-  const {
-    localVideoRef,
-    localStream,
-    streams,
-    activeId,
-    setActiveId
-  } = useWebRTC("demo-video");
-
+  const localVideoRef = useRef(null);
   const videoRefs = useRef({});
+
+  // ✅ MAP: peerId -> MediaStream
+  const [remoteStreams, setRemoteStreams] = useState({});
+  const [activeStream, setActiveStream] = useState("local");
   const [page, setPage] = useState(0);
   const [showChatMobile, setShowChatMobile] = useState(false);
 
+  const roomName = localStorage.getItem("roomName") || "demo-video";
 
-  // Attach streams to video elements
+  const hasVideoTrack = (stream) =>
+    stream &&
+    stream.getVideoTracks &&
+    stream.getVideoTracks().length > 0;
+
+  const handleRemoteStream = (stream, peerId) => {
+    setRemoteStreams(prev => ({
+      ...prev,
+      [peerId]: stream
+    }));
+
+  };
+
+  const { start, getLocalStream } = useSFU(roomName, handleRemoteStream);
+
+  /* ---------- START SFU ---------- */
   useEffect(() => {
-    streams.forEach(({ id, stream }) => {
-      const videoEl =
-        id === "local"
-          ? localVideoRef.current
-          : videoRefs.current[id];
+    start(localVideoRef);
+  }, []);
 
-      if (videoEl && videoEl.srcObject !== stream) {
-        videoEl.srcObject = stream;
-      }
-    });
-  }, [streams, activeId]);
+  /* ---------- PAGINATION ---------- */
+  const remoteEntries = Object.entries(remoteStreams);
+  const startIdx = page * PAGE_SIZE;
+  const endIdx = startIdx + PAGE_SIZE;
+  const visibleStreams = remoteEntries.slice(startIdx, endIdx);
+  const remainingCount = Math.max(0, remoteEntries.length - endIdx);
 
-  // Reset pagination when users change
-  useEffect(() => {
-    setPage(0);
-  }, [streams.length]);
+  useEffect(() => setPage(0), [remoteEntries.length]);
 
-  /* ---------- PAGINATION LOGIC ---------- */
-  const smallStreams = streams.filter(s => s.id !== activeId);
-  const start = page * PAGE_SIZE;
-  const end = start + PAGE_SIZE;
-  const visibleStreams = smallStreams.slice(start, end);
-  const remainingCount = Math.max(0, smallStreams.length - end);
+  /* ---------- BIG VIDEO (REMOTE) ---------- */
+  const showInBigScreen = (stream) => {
+    const video = localVideoRef.current;
+    if (!video) return;
+
+    video.srcObject = stream;
+    video.muted = false;
+
+    video.onloadedmetadata = () => {
+      video.play().catch(() => { });
+    };
+
+    setActiveStream("remote");
+  };
+
+  /* ---------- BIG VIDEO (LOCAL) ---------- */
+  const showLocalInBigScreen = () => {
+    const video = localVideoRef.current;
+    const localStream = getLocalStream();
+    if (!video || !localStream) return;
+
+    video.srcObject = localStream;
+    video.muted = true;
+
+    video.onloadedmetadata = () => {
+      video.play().catch(() => { });
+    };
+
+    setActiveStream("local");
+  };
+
+  // visibleStreams.filter(([_, stream]) => hasVideoTrack(stream)).map(([peerId, stream])=>{
+  //   console.log('========>122:',peerId, "video tracks:",
+  // stream.getVideoTracks().length,
+  // "audio tracks:",
+  // stream.getAudioTracks().length);
+  // })
 
   return (
-    <>
-      {/* MAIN LAYOUT */}
-      <div className="room-layout">
-        {/* LEFT: VIDEO AREA */}
-        <div className="video-area">
-          {/* BIG VIDEO + CONTROLS */}
-          <div className="big-video-container">
-            {streams
-              .filter(s => s.id === activeId)
-              .map(s => (
+    <div className="room-layout">
+      <div className="video-area">
+        {/* BIG VIDEO */}
+        <div className="big-video-container">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted={activeStream === "local"}
+            className="big-video"
+            onClick={showLocalInBigScreen}
+          />
+          <div className="video-controls-overlay">
+            <Controls
+              localStream={getLocalStream()}
+              roomId={roomName}
+            />
+          </div>
+
+          <button
+            className="mobile-chat-btn"
+            onClick={() => setShowChatMobile(true)}
+          >
+            Chat
+          </button>
+        </div>
+
+        {/* SMALL VIDEOS */}
+        <div className="small-video-column">
+          <div className="small-video-list">
+            {visibleStreams
+              .filter(([_, stream]) => hasVideoTrack(stream))
+              .map(([peerId, stream]) => (
                 <video
-                  key={s.id}
-                  ref={el => {
-                    if (s.id === "local") {
-                      localVideoRef.current = el;
-                    } else {
-                      videoRefs.current[s.id] = el;
-                    }
-                  }}
+                  key={peerId}
+                  muted
                   autoPlay
                   playsInline
-                  muted={s.id === "local"}
-                  className="big-video"
-                />
-              ))}
+                  className="small-video"
+                  ref={el => {
+                    if (!el) return;
 
-            {/*CONTROLS OVERLAY */}
-            <div className="video-controls-overlay">
-              <Controls
-                localStream={localStream}
-                roomId="demo-video"
-              // startRecording={startRecording}
-              // stopRecording={stopRecording}
-              />
-            </div>
+                    // 🔒 HARD GUARD
+                    if (el.srcObject === stream) return;
+
+                    console.log("🎥 binding small video:", peerId);
+
+                    el.srcObject = stream;
+                    el.muted = true;
+
+                    el.onloadedmetadata = () => {
+                      el.play().catch(err =>
+                        console.warn("play blocked:", err)
+                      );
+                    };
+                  }}
+                  onClick={() => showInBigScreen(stream)}
+                />
+
+
+
+              ))
+            }
+          </div>
+
+          <div className="thumbnail-pagination">
             <button
-              className="mobile-chat-btn"
-              onClick={() => setShowChatMobile(true)}
+              disabled={page === 0}
+              onClick={() => setPage(p => Math.max(0, p - 1))}
             >
-              Chat
+              Prev
+            </button>
+            <button
+              disabled={endIdx >= remoteEntries.length}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
             </button>
           </div>
 
-          {/* SMALL VIDEOS */}
-          <div className="small-video-column">
-            <div className="small-video-list">
-              {visibleStreams.map(s => (
-                <video
-                  key={s.id}
-                  ref={el => (videoRefs.current[s.id] = el)}
-                  autoPlay
-                  playsInline
-                  muted
-                  onClick={() => setActiveId(s.id)}
-                  className="small-video"
-                />
-              ))}
-            </div>
-
-            {/* PAGINATION CONTROLS */}
-            <div className="thumbnail-pagination">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-              >
-                Prev
-              </button>
-
-              <button
-                disabled={end >= smallStreams.length}
-                onClick={() => setPage(p => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-
-            {remainingCount > 0 && (
-              <div className="more-count">
-                +{remainingCount} more
-              </div>
-            )}
-          </div>
+          {remainingCount > 0 && (
+            <div className="more-count">+{remainingCount} more</div>
+          )}
         </div>
-
-        <div className="chat-area">
-          <Chat />
-        </div>
-        {/* <div className={`chat-area ${showChatMobile ? "show-chat" : ""}`}>
-          <button
-            className="close-chat-btn"
-            onClick={() => setShowChatMobile(false)}
-          >
-            ✕
-          </button>
-          <Chat />
-        </div> */}
       </div>
-    </>
+
+      {/* CHAT */}
+      <div className="chat-area">
+        <Chat />
+      </div>
+
+      <div className={`chat-area ${showChatMobile ? "show-chat" : ""}`}>
+        <button
+          className="close-chat-btn"
+          onClick={() => setShowChatMobile(false)}
+        >
+          ✕
+        </button>
+        <Chat />
+      </div>
+    </div>
   );
 }
