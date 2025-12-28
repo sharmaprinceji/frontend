@@ -27,26 +27,25 @@ const VideoCall = () => {
   // ---------------- INIT ----------------
   useEffect(() => {
     const init = async () => {
-      // 🎥 Local stream
       const localStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
 
       localStreamRef.current = localStream;
-      setActiveStream(localStream); // BIG = local by default
+      setActiveStream(localStream); 
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
       peerConnectionRef.current = pc;
 
-      // Add local tracks
+      // Add local tracks to peer connection
       localStream.getTracks().forEach((track) => {
         pc.addTrack(track, localStream);
       });
 
-      // Handle remote tracks (IMPORTANT FIX)
+      // Handle remote tracks 
       pc.ontrack = (e) => {
         const incomingStream = e.streams[0];
         const incomingTrack = e.track;
@@ -57,7 +56,7 @@ const VideoCall = () => {
 
         if (isLocalTrack) return;
 
-        // 🔥 socketId ko transceiver se attach karo (simple hack)
+        // socketId ko transceiver se attach kiya hai
         const socketId = e.transceiver?.mid || "remote";
 
         setRemoteStreams((prev) => {
@@ -78,7 +77,7 @@ const VideoCall = () => {
 
       socket.emit("join-video-room", { roomId: ROOM_ID });
 
-      // 1️⃣ listeners FIRST
+      //listeners FIRST
       socket.on("user-joined-video", async () => {
         if (hasCreatedOfferRef.current) return;
 
@@ -120,7 +119,7 @@ const VideoCall = () => {
           new RTCSessionDescription(answer)
         );
 
-        // 🔥 Flush queued ICE
+        //Flush queued ICE
         for (const c of pendingIceCandidatesRef.current) {
           await pc.addIceCandidate(c);
         }
@@ -160,14 +159,13 @@ const VideoCall = () => {
     };
   }, []);
 
-  // ---------------- BIG VIDEO ----------------
   useEffect(() => {
     if (bigVideoRef.current && activeStream) {
       bigVideoRef.current.srcObject = activeStream;
     }
   }, [activeStream]);
 
-  // ---------------- CONTROLS ----------------
+
   const toggleMute = () => {
     const track = localStreamRef.current?.getAudioTracks()[0];
     if (!track) return;
@@ -181,7 +179,6 @@ const VideoCall = () => {
 
     setIsCameraOff(!track.enabled);
 
-    // 🔥 notify others
     socket.emit("camera-state", {
       roomId: ROOM_ID,
       cameraOff: !track.enabled,
@@ -197,7 +194,7 @@ const VideoCall = () => {
 
   const smallStreams = [];
 
-  // ✅ local small tabhi jab BIG nahi hai
+  // local small tabhi jab BIG nahi hai
   if (
     localStreamRef.current &&
     activeStream !== localStreamRef.current
@@ -205,7 +202,7 @@ const VideoCall = () => {
     smallStreams.push(localStreamRef.current);
   }
 
-  // ✅ remote small tabhi jab BIG nahi hai
+  // remote small tabhi jab BIG nahi hai
   remoteStreams.forEach((s) => {
     if (s !== activeStream) {
       smallStreams.push(s);
@@ -214,9 +211,7 @@ const VideoCall = () => {
 
   return (
     <div style={{ height: "100vh", display: "flex" }}>
-      {/* VIDEO AREA */}
       <div style={{ width: "70%", background: "#000", position: "relative" }}>
-        {/* BIG VIDEO */}
         <video
           ref={bigVideoRef}
           autoPlay
@@ -229,7 +224,6 @@ const VideoCall = () => {
           }}
         />
 
-        {/* SMALL THUMBNAILS */}
         <div
           style={{
             position: "absolute",
@@ -320,7 +314,6 @@ const VideoCall = () => {
 
         </div>
 
-        {/* CONTROLS */}
         <div
           style={{
             position: "absolute",
@@ -344,7 +337,6 @@ const VideoCall = () => {
         </div>
       </div>
 
-      {/* CHAT */}
       <div style={{ width: "30%", borderLeft: "1px solid #ddd" }}>
         <Chat />
       </div>
@@ -353,5 +345,3 @@ const VideoCall = () => {
 };
 
 export default VideoCall;
-
-

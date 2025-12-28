@@ -5,6 +5,7 @@ const ICE_CONFIG = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
 };
 
+
 export function useWebRTC(roomId) {
     const localVideoRef = useRef(null);
     const peers = useRef({});
@@ -73,7 +74,7 @@ export function useWebRTC(roomId) {
             // });
 
             socket.on("user-left", (id) => {
-                console.log('73======>', id);
+                //console.log('73======>', id);
                 if (peers.current[id]) {
                     peers.current[id].close();
                     delete peers.current[id];
@@ -81,7 +82,7 @@ export function useWebRTC(roomId) {
 
                 setStreams(prev => prev.filter(s => s.id !== id));
 
-                // 🔥 FIX ACTIVE SCREEN
+                // FIX ACTIVE SCREEN
                 setActiveId(prev =>
                     prev === id ? "local" : prev
                 );
@@ -104,17 +105,17 @@ export function useWebRTC(roomId) {
         return () => {
             mounted = false;
 
-            // 🔥 Inform server
+            //Inform server
             socket.emit("leave-room", { roomId });
 
-            // 🔥 Close all peer connections
+            //Close all peer connections
             Object.values(peers.current).forEach(pc => pc.close());
             peers.current = {};
 
-            // 🔥 Stop media tracks
+            // Stop media tracks
             localStream?.getTracks().forEach(track => track.stop());
 
-            // 🔥 Clear UI
+            // Clear UI
             setStreams([]);
             setActiveId(null);
 
@@ -189,7 +190,7 @@ export function useWebRTC(roomId) {
         mediaRecorder.start();
         recorderRef.current = mediaRecorder;
 
-        console.log("Recording started");
+        //console.log("Recording started");
     };
 
     const stopRecording = () => {
@@ -211,7 +212,7 @@ export function useWebRTC(roomId) {
             URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            console.log("Recording downloaded");
+            //console.log("Recording downloaded");
         };
     };
 

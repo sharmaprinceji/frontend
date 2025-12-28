@@ -49,11 +49,8 @@ export default function Room() {
 
   return (
     <>
-      {/* MAIN LAYOUT */}
       <div className="room-layout">
-        {/* LEFT: VIDEO AREA */}
         <div className="video-area">
-          {/* BIG VIDEO + CONTROLS */}
           <div className="big-video-container">
             {streams
               .filter(s => s.id === activeId)
@@ -74,7 +71,7 @@ export default function Room() {
                 />
               ))}
 
-            {/*CONTROLS OVERLAY */}
+            
             <div className="video-controls-overlay">
               <Controls
                 localStream={localStream}
