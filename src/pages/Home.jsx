@@ -24,11 +24,12 @@ const Home = () => {
   return (
     <div
       style={{
-        height: "100vh",
+        height: "48vh",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#f5f5f5"
+        background: "#f5f5f5",
+        borderRadius: "8px"
       }}
     >
       <div
@@ -52,7 +53,7 @@ const Home = () => {
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{
-            width: "100%",
+            width: "82%",
             padding: "10px",
             marginBottom: "12px",
             borderRadius: "4px",
