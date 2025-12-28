@@ -11,7 +11,7 @@ const Header = () => {
         fontWeight: "bold",
       }}
     >
-      Welcome to my PincoderMeet App
+      Welcome to my PincoderMeet
     </header>
   );
 };

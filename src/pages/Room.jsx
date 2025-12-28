@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useWebRTC } from "../hooks/useWebRTC";
-import Controls from "../components/Controls";
-import Chat from "./Chat";
+import Controls from "../components/Controls.jsx";
+import Chat from "./Chat.jsx";
+
 import "./room.css";   // 🔥 external CSS
 
 const PAGE_SIZE = 3;

@@ -1,4 +1,4 @@
-import { socket } from "../services/socket";
+import { socket } from "../services/socket.jsx";
 import { useState } from "react";
 
 export default function Controls({ localStream, roomId, startRecording, stopRecording}) {

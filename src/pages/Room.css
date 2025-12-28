@@ -71,6 +71,8 @@
   cursor: pointer;
   background: black;
   object-fit: cover;
+  margin-top: 2px;
+  margin-left: 1px;
 }
 
 /* PAGINATION FIXED BOTTOM */

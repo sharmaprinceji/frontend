@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { socket } from "../services/socket";
 import { useNavigate } from "react-router-dom";
-import Chat from "./Chat";
+import Chat from "./Chat.jsx";
 
 const ROOM_ID = "demo-video";
 

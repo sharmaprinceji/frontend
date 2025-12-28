@@ -7,7 +7,7 @@ import { io } from "socket.io-client";
 //   autoConnect: true,
 // });
 
-export const socket = io("/", {
+export const socket = io("/api", {
   path: "/socket.io",
   transports: ["websocket"],
 });
