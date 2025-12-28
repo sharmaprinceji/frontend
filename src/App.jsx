@@ -1,7 +1,7 @@
 import { useState,useEffect } from 'react'
 import { socket } from "./services/socket.jsx";
-import VideoCall from './pages/VideoCall .jsx';
-import Home from './pages/Home.jsx';
+import VideoCall from './pages/VideoCall.jsx';
+import Home from './pages/home.jsx';
 import Header from './components/Header.jsx';
 import {BrowserRouter, Routes, Route} from 'react-router-dom';
 import Room from './pages/Room.jsx';
